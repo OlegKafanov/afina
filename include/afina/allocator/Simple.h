@@ -10,7 +10,6 @@ namespace Allocator {
 // Forward declaration. Do not include real class definition
 // to avoid expensive macros calculations and increase compile speed
 class Pointer;
-
 /**
  * Wraps given memory area and provides defagmentation allocator interface on
  * the top of it.
@@ -20,7 +19,38 @@ class Pointer;
  * being needs
  */
 // TODO: Implements interface to allow usage as C++ allocators
-class Simple {
+class FreeMemory {
+public:
+    FreeMemory(void *base, size_t size);
+    void move_free_ptr(void *new_ptr);
+    void *get_free_ptr();
+    void increase_available_now(size_t new_size);
+    void decrease_available_now(size_t new_size);
+    size_t get_available_now();
+    void increase_all_free(size_t new_size);
+    void decrease_all_free(size_t new_size);
+    size_t get_all_free();
+
+private:
+    void *_ptr;
+    size_t _available_now;
+    size_t _all_free;
+};
+
+class Table : public FreeMemory{
+public:
+    Table (void *base, size_t size);
+    void** write (void **ptr);
+    void remove (void **ptr);
+
+private:
+    size_t _size_table;
+    size_t _available_table;
+    size_t *_back;
+
+};
+
+class Simple : public Table {
 public:
     Simple(void *base, const size_t size);
 
@@ -56,6 +86,7 @@ public:
 private:
     void *_base;
     const size_t _base_len;
+    size_t *_back;
 };
 
 } // namespace Allocator
