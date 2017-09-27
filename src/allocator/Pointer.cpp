@@ -4,7 +4,7 @@ namespace Afina {
 namespace Allocator {
 
 Pointer::Pointer():_ptr(nullptr){}
-Pointer::Pointer(void *base): _ptr(&base){}
+Pointer::Pointer(void *ptr): _ptr(&ptr){}
 
 Pointer::Pointer(const Pointer &) {}
 Pointer::Pointer(Pointer &&) {}

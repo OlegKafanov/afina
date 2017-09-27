@@ -40,13 +40,13 @@ private:
 class Table : public FreeMemory{
 public:
     Table (void *base, size_t size);
-    void** write (void **ptr);
+    void** write (void *ptr);
     void remove (void **ptr);
 
 private:
     size_t _size_table;
     size_t _available_table;
-    size_t *_back;
+    size_t **_back;
 
 };
 
@@ -86,7 +86,7 @@ public:
 private:
     void *_base;
     const size_t _base_len;
-    size_t *_back;
+    //size_t **_back;
 };
 
 } // namespace Allocator

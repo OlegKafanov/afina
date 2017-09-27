@@ -3,12 +3,14 @@
 #include <afina/allocator/Pointer.h>
 #include <afina/allocator/Error.h>
 
+#define HEAD 2
+
 namespace Afina {
 namespace Allocator {
 
 FreeMemory::FreeMemory(void *base, size_t size): _ptr(base), _available_now(size), _all_free(size){}
 
-Table::Table(void *base, size_t size):_back((size_t *) base + size/sizeof(size_t) - 1), FreeMemory(base, size){}
+Table::Table(void *base, size_t size):_back(reinterpret_cast <size_t **> ((size_t *) base + size/sizeof(size_t) - 1)), FreeMemory(base, size){}
 
 Simple::Simple(void *base, size_t size) : _base(base), _base_len(size), Table(base, size){}
 
@@ -45,9 +47,9 @@ size_t FreeMemory::get_all_free()
     return _all_free;
 }
 
-void** Table::write (void **ptr)
+void** Table::write (void *ptr)
 {
-    size_t *** tmp_ptr;
+    size_t ** tmp_ptr;
 
     if(!_size_table) //init
       {
@@ -56,7 +58,7 @@ void** Table::write (void **ptr)
         this->decrease_all_free(_size_table);
         this->decrease_available_now(_size_table);
         for (size_t i = 0; i < _size_table; i++)
-            *(_back - i) = 0;
+            *(_back - i) = nullptr;
       }
 
     else if ((!_available_table) && (this->get_available_now() >= this->_size_table))
@@ -69,23 +71,24 @@ void** Table::write (void **ptr)
         _size_table = _size_table * 2;
       };
 
-    if (this->get_available_now() < _size_table)
-        throw AllocError(AllocErrorType::NoMemory, "NoMemory");
+//    if (this->get_available_now() < _size_table)
+//        throw AllocError(AllocErrorType::NoMemory, "NoMemory");
 
-    for (size_t i = 0; (i < _size_table)||(!(_back - i)); i++)
-        if(!(*(_back - i)))
+    for (size_t i = 0; (i < _size_table)||(!(_back + i)); i++)
+        if(*(_back + i) == nullptr)
           {
-            tmp_ptr = reinterpret_cast <size_t ***> (_back - i);
-             *(tmp_ptr) = (size_t **) ptr;// !!!!!!!!!!!!!!!!
+            tmp_ptr =_back + i;
+            //*tmp_ptr = static_cast <size_t *> (ptr);
+            *tmp_ptr = (size_t *) (ptr);
             _available_table -= 1;
           }
 
-    return reinterpret_cast <void **> (*tmp_ptr);
+    return (void **) (tmp_ptr);
 }
 
 void Table::remove (void **ptr)
 {
-    *ptr = nullptr;
+    *ptr = nullptr;//???????????????
     _available_table += 1;
 }
 
@@ -95,28 +98,24 @@ void Table::remove (void **ptr)
  */
 Pointer Simple::alloc(size_t N)
 {
-    size_t *p;
+    void **p;
 
     if (N > this->get_all_free())
-        throw AllocError(AllocErrorType::NoMemory, "NoMemory");
+  ;//      throw AllocError(AllocErrorType::NoMemory, "NoMemory");
     else if (N > this->get_available_now())
         ;//defrag!!!!!!!!!!!!!!!!!!!!;
-    else
-      {
-        p = (size_t *) this->get_free_ptr() + 2;
-        //this->get_ptr() = ;after difrag!!!!!!!!!!!!!!!!!!!!
-        *((size_t *)this->get_free_ptr() + 1) = N;
-        this->move_free_ptr((size_t *)this->get_free_ptr() + N + 2);
-        this->decrease_available_now(N + 2);
-        this->decrease_all_free(N + 2);
-        return Pointer(p);
-      }
 
+    //p = this->write (static_cast <size_t *> (this->get_free_ptr()) + HEAD);
+    *p = _base;
+    //head:
+    *(static_cast <size_t *> (this->get_free_ptr()) + 1) = N;
+    *(static_cast <void **> (this->get_free_ptr())) = p;//???????????
+    //change free memory
+    this->move_free_ptr (static_cast <size_t *> (this->get_free_ptr()) + N + HEAD);
+    this->decrease_available_now (N + HEAD);
+    this->decrease_all_free (N + HEAD);
 
-
-    //size_t *p;
-    //p = (size_t *) _base;
-    //return Pointer(p);
+    return Pointer(*p);
 }
 
 /**
@@ -124,18 +123,28 @@ Pointer Simple::alloc(size_t N)
  * @param p Pointer
  * @param N size_t
  */
-void Simple::realloc(Pointer &p, size_t N) {}
+void Simple::realloc(Pointer &p, size_t N)
+{
+
+}
 
 /**
  * TODO: semantics
  * @param p Pointer
  */
-void Simple::free(Pointer &p) {}
+void Simple::free(Pointer &p)
+{
+    ** (reinterpret_cast <size_t **> (p._ptr)) = 0;
+    this->remove(p._ptr);
+}
 
 /**
  * TODO: semantics
  */
-void Simple::defrag() {}
+void Simple::defrag()
+{
+
+}
 
 /**
  * TODO: semantics

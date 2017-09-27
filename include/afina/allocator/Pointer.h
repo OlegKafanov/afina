@@ -12,7 +12,7 @@ class Pointer {
 public:
     void **_ptr;
     Pointer();
-    Pointer(void *base);
+    Pointer(void *ptr);
 
     Pointer(const Pointer &);
     Pointer(Pointer &&);
