@@ -10,7 +10,7 @@ namespace Allocator {
 
 FreeMemory::FreeMemory(void *base, size_t size): _ptr(base), _available_now(size), _all_free(size){}
 
-Table::Table(void *base, size_t size):_back(reinterpret_cast <size_t **> ((size_t *) base + size/sizeof(size_t) - 1)), FreeMemory(base, size){}
+Table::Table(void *base, size_t size):_back(reinterpret_cast <size_t **> ((size_t *) base + size/sizeof(size_t) - 1)), _size_table(0), FreeMemory(base, size){}
 
 Simple::Simple(void *base, size_t size) : _base(base), _base_len(size), Table(base, size){}
 
@@ -47,7 +47,7 @@ size_t FreeMemory::get_all_free()
     return _all_free;
 }
 
-void** Table::write (void *ptr)
+void* Table::write (void *ptr)
 {
     size_t ** tmp_ptr;
 
@@ -74,16 +74,20 @@ void** Table::write (void *ptr)
 //    if (this->get_available_now() < _size_table)
 //        throw AllocError(AllocErrorType::NoMemory, "NoMemory");
 
-    for (size_t i = 0; (i < _size_table)||(!(_back + i)); i++)
-        if(*(_back + i) == nullptr)
+    for (size_t i = 0; i < _size_table; i++)  //||(!(*(_back - i)))
+    {
+        if(*(_back - i) == nullptr)
           {
-            tmp_ptr =_back + i;
-            //*tmp_ptr = static_cast <size_t *> (ptr);
-            *tmp_ptr = (size_t *) (ptr);
+            //tmp_ptr = static_cast <size_t **>(_back) - i;
+            tmp_ptr = _back - i;
+            *tmp_ptr = static_cast <size_t *> (ptr);
+            //*(tmp_ptr) = (size_t *) (ptr);
             _available_table -= 1;
+            break;
           }
-
-    return (void **) (tmp_ptr);
+    };
+    //return (void *) (*tmp_ptr);
+    return *tmp_ptr;
 }
 
 void Table::remove (void **ptr)
@@ -98,15 +102,15 @@ void Table::remove (void **ptr)
  */
 Pointer Simple::alloc(size_t N)
 {
-    void **p;
+    void *p;
 
     if (N > this->get_all_free())
   ;//      throw AllocError(AllocErrorType::NoMemory, "NoMemory");
     else if (N > this->get_available_now())
         ;//defrag!!!!!!!!!!!!!!!!!!!!;
 
-    //p = this->write (static_cast <size_t *> (this->get_free_ptr()) + HEAD);
-    *p = _base;
+    p = this->write (static_cast <size_t *> (this->get_free_ptr()) + HEAD);
+    //p = _base;
     //head:
     *(static_cast <size_t *> (this->get_free_ptr()) + 1) = N;
     *(static_cast <void **> (this->get_free_ptr())) = p;//???????????
@@ -115,7 +119,7 @@ Pointer Simple::alloc(size_t N)
     this->decrease_available_now (N + HEAD);
     this->decrease_all_free (N + HEAD);
 
-    return Pointer(*p);
+    return Pointer(p);
 }
 
 /**
@@ -134,8 +138,8 @@ void Simple::realloc(Pointer &p, size_t N)
  */
 void Simple::free(Pointer &p)
 {
-    ** (reinterpret_cast <size_t **> (p._ptr)) = 0;
-    this->remove(p._ptr);
+  //  ** (reinterpret_cast <size_t **> (p._ptr)) = 0;
+  //  this->remove(p._ptr);
 }
 
 /**
