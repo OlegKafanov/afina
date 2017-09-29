@@ -22,7 +22,8 @@ class Pointer;
 class FreeMemory {
 public:
     FreeMemory(void *base, size_t size);
-    void move_free_ptr(void *new_ptr);
+//    void move_free_ptr(void *new_ptr);
+    void move_free_ptr(size_t new_ptr);
     void *get_free_ptr();
     void increase_available_now(size_t new_size);
     void decrease_available_now(size_t new_size);
