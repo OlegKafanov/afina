@@ -12,7 +12,7 @@ class Pointer {
 public:
     void **_ptr;
     Pointer();
-    Pointer(void *ptr);
+    Pointer(void **ptr);
 
     Pointer(const Pointer &);
     Pointer(Pointer &&);
@@ -20,10 +20,7 @@ public:
     Pointer &operator=(const Pointer &);
     Pointer &operator=(Pointer &&);
 
-    void *get() const
-      {
-        return *_ptr;
-      }
+    void *get() const;
 };
 
 } // namespace Allocator

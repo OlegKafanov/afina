@@ -49,11 +49,12 @@ size_t FreeMemory::get_all_free()
     return _all_free;
 }
 
-void* Table::write (void *ptr)
+void** Table::write (void *ptr)
 {
     size_t ** tmp_ptr;
+    void ** tmp_ptr_void;
 
-    if(!_size_table) //init
+    if(!_size_table) //init А что если уменьшили до нуля????
       {
         _size_table = 10;
         _available_table = _size_table;
@@ -73,8 +74,8 @@ void* Table::write (void *ptr)
         _size_table = _size_table * 2;
       };
 
-    if (this->get_available_now() < _size_table)
-        throw AllocError(AllocErrorType::NoMemory, "NoMemory");
+    //if (this->get_available_now() < _size_table)
+    //    throw AllocError(AllocErrorType::NoMemory, "NoMemory");
 
     for (size_t i = 0; i < _size_table; i++)  //||(!(*(_back - i)))
     {
@@ -89,7 +90,8 @@ void* Table::write (void *ptr)
           }
     };
     //return (void *) (*tmp_ptr);
-    return *tmp_ptr;
+    tmp_ptr_void = reinterpret_cast<void**> (tmp_ptr);
+    return tmp_ptr_void;
 }
 
 void Table::remove (void **ptr)
@@ -104,7 +106,7 @@ void Table::remove (void **ptr)
  */
 Pointer Simple::alloc(size_t N)
 {
-    void *p;
+    void **p;
     size_t M;
 
     if (N > this->get_all_free())
@@ -112,12 +114,13 @@ Pointer Simple::alloc(size_t N)
     else if (N > this->get_available_now())
         ;//defrag!!!!!!!!!!!!!!!!!!!!;
     //(char) N -----> size_t M
-    M = N / sizeof (size_t) + (1 * (( !(N % sizeof (size_t))) ? 0 : 1));
+    M = N / sizeof (size_t) + (( !(N % sizeof (size_t))) ? 0 : 1);
     p = this->write (static_cast <size_t *> (this->get_free_ptr()) + HEAD);
     //p = _base;
     //head:
     *(static_cast <size_t *> (this->get_free_ptr()) + 1) = M;
-    *(static_cast <void **> (this->get_free_ptr())) = &p;//???????????  DEBAGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
+    *(static_cast <size_t **> (this->get_free_ptr())) = static_cast <size_t *> (*p);//???????????  DEBAGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
+//    *(static_cast <void **> (this->get_free_ptr())) = p;//???????????  DEBAGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
     //change free memory
     //this->move_free_ptr (static_cast <size_t *> (this->get_free_ptr()) + N + HEAD);
 //    this->move_free_ptr (static_cast <void *> (static_cast <size_t *> (this->get_free_ptr()) + N + HEAD));

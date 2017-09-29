@@ -41,7 +41,7 @@ private:
 class Table : public FreeMemory{
 public:
     Table (void *base, size_t size);
-    void* write (void *ptr);
+    void **write (void *ptr);
     void remove (void **ptr);
 
 private:
