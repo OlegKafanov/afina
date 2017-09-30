@@ -64,7 +64,7 @@ void** Table::write (void *ptr)
     size_t ** tmp_ptr;
     void ** tmp_ptr_void;
 
-    if(!_size_table) //init А что если уменьшили до нуля????
+    if(!_size_table) //init
       {
         _size_table = 10;
         _available_table = _size_table;
@@ -131,18 +131,14 @@ Pointer Simple::alloc(size_t N)
     if (N > this->get_all_free())
         throw AllocError(AllocErrorType::NoMemory, "NoMemory");
     else if (N > this->get_available_now())
-        defrag();//defrag!!!!!!!!!!!!!!!!!!!!;
+        defrag();
     //(char) N -----> size_t M
     M = N / sizeof (size_t) + (( !(N % sizeof (size_t))) ? 0 : 1);
     p = this->write (static_cast <size_t *> (this->get_free_ptr()) + HEAD);
-    //p = _base;
     //head:
-    *(static_cast <size_t *> (this->get_free_ptr()) + 1) = M;
-    *(static_cast <size_t ***> (this->get_free_ptr())) = reinterpret_cast <size_t **> (p);//???????????  DEBAGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
-//    *(static_cast <void **> (this->get_free_ptr())) = p;//???????????  DEBAGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
+    *(static_cast <size_t *> (this->get_free_ptr()) + 1) = M;//???????????  DEBAGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
+    *(static_cast <size_t ***> (this->get_free_ptr())) = reinterpret_cast <size_t **> (p);
     //change free memory
-    //this->move_free_ptr (static_cast <size_t *> (this->get_free_ptr()) + N + HEAD);
-//    this->move_free_ptr (static_cast <void *> (static_cast <size_t *> (this->get_free_ptr()) + N + HEAD));
     this->move_free_ptr (M + HEAD);
     this->decrease_available_now ((M + HEAD) * sizeof(size_t));
     this->decrease_all_free ((M + HEAD) * sizeof(size_t));
