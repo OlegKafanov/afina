@@ -126,8 +126,8 @@ Pointer Simple::alloc(size_t N)
 
     if (N > this->get_all_free())
         throw AllocError(AllocErrorType::NoMemory, "NoMemory");
-    else if (N > this->get_available_now())
-        defrag();
+    //else if (N > this->get_available_now())
+    //    defrag();
     //(char) N -----> size_t M
     M = N / sizeof (size_t) + (( !(N % sizeof (size_t))) ? 0 : 1);
     p = this->write (static_cast <size_t *> (this->get_free_ptr()) + HEAD);
@@ -212,7 +212,7 @@ void Simple::defrag()
 {
     size_t *ptr = nullptr;
     size_t *move_ptr = nullptr;
-    size_t N;
+    size_t N = 0;
 
     ptr = static_cast <size_t *> (_base);
 
@@ -221,12 +221,14 @@ void Simple::defrag()
         N = *(ptr + 1);
         if (!(*ptr) && !move_ptr)
         {
-            move_ptr = *reinterpret_cast <size_t **>(ptr);
+//            move_ptr = *reinterpret_cast <size_t **>(ptr);
+            move_ptr = ptr;
         }
         if (*ptr && move_ptr)
         {
             move (ptr, move_ptr, N);
-            *(reinterpret_cast <size_t **> (move_ptr)) = *(reinterpret_cast <size_t **> (ptr));
+            //*(reinterpret_cast <size_t **> (move_ptr)) = *(reinterpret_cast <size_t **> (ptr));
+            *(*(reinterpret_cast <size_t ***> (move_ptr))) = move_ptr + HEAD;
             move_ptr = move_ptr + N + HEAD;
         }
         ptr = ptr + N + HEAD;
@@ -240,7 +242,10 @@ void Simple::defrag()
 /**
  * TODO: semantics
  */
-std::string Simple::dump() const { return ""; }
+std::string Simple::dump() const
+{
 
+}
+//вывести указатели до и после дефрага
 } // namespace Allocator
 } // namespace Afina
