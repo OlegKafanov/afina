@@ -131,7 +131,7 @@ Pointer Simple::alloc(size_t N)
     if (N > this->get_all_free())
         throw AllocError(AllocErrorType::NoMemory, "NoMemory");
     else if (N > this->get_available_now())
-        ;//defrag!!!!!!!!!!!!!!!!!!!!;
+        defrag();//defrag!!!!!!!!!!!!!!!!!!!!;
     //(char) N -----> size_t M
     M = N / sizeof (size_t) + (( !(N % sizeof (size_t))) ? 0 : 1);
     p = this->write (static_cast <size_t *> (this->get_free_ptr()) + HEAD);
@@ -157,7 +157,46 @@ Pointer Simple::alloc(size_t N)
  */
 void Simple::realloc(Pointer &p, size_t N)
 {
+    Pointer tmp_pointer;
+    size_t M = N / sizeof (size_t) + (( !(N % sizeof (size_t))) ? 0 : 1);
 
+//    if (!p._ptr)
+//        throw AllocError(AllocErrorType::InvalidFree, "SEGFAULT");
+    if (!p._ptr)
+    {
+        p = alloc(N);
+        return;
+    }
+
+    size_t * ptr = static_cast <size_t *>(p.get());
+
+    if (N <= *(ptr + 1) * sizeof (size_t))
+    {
+        this->increase_all_free (*(ptr + 1) - N / sizeof (size_t));
+        *(ptr + 1) = *(ptr + 1) - N / sizeof (size_t);
+    }
+    else if (N > this->get_available_now())
+    {
+        throw AllocError(AllocErrorType::NoMemory, "NoMemory");
+    }
+    else
+    {
+            if (ptr + *(ptr + 1) + HEAD == this->get_free_ptr())
+        {
+            *(ptr + 1) = *(ptr + 1) + M;
+            this->decrease_available_now(M);
+            this->decrease_all_free(M);
+            this->move_free_ptr(M);
+        }
+        else
+        {
+            tmp_pointer = alloc(N);
+            move (ptr, static_cast <size_t *> (tmp_pointer.get()), *(ptr + 1));
+            *(ptr + 1) = N;
+            free(p);
+        }
+    }
+    p = tmp_pointer;
 }
 
 /**

@@ -24,7 +24,7 @@ Pointer &Pointer::operator=(Pointer &&p) {
 }
 
 void* Pointer::get() const {
-  if (*_ptr) {
+  if (_ptr) {
     return *_ptr;
   }
   else {
