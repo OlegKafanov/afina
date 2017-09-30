@@ -20,6 +20,10 @@ void FreeMemory::move_free_ptr(size_t new_ptr)
 //    _ptr = new_ptr;
     _ptr = static_cast <size_t *>(_ptr) + new_ptr;
 }
+void FreeMemory::set_free_ptr(void* new_ptr)
+{
+    _ptr =  new_ptr;
+}
 void *FreeMemory::get_free_ptr()
 {
     return _ptr;
@@ -30,7 +34,10 @@ void FreeMemory::increase_available_now(size_t new_size)
 }
 void FreeMemory::decrease_available_now(size_t new_size)
 {
-    _available_now -= new_size;
+    if (new_size > _available_now)
+        _available_now = 0;
+    else
+        _available_now -= new_size;
 }
 size_t FreeMemory::get_available_now()
 {
@@ -42,7 +49,10 @@ void FreeMemory::increase_all_free(size_t new_size)
 }
 void FreeMemory::decrease_all_free(size_t new_size)
 {
-    _all_free -= new_size;
+    if (new_size > _all_free)
+        _all_free = 0;
+    else
+        _all_free -= new_size;
 }
 size_t FreeMemory::get_all_free()
 {
@@ -58,8 +68,8 @@ void** Table::write (void *ptr)
       {
         _size_table = 10;
         _available_table = _size_table;
-        this->decrease_all_free(_size_table);
-        this->decrease_available_now(_size_table);
+        this->decrease_all_free(_size_table * sizeof(size_t));
+        this->decrease_available_now(_size_table * sizeof(size_t));
         for (size_t i = 0; i < _size_table; i++)
             *(_back - i) = nullptr;
       }
@@ -67,15 +77,15 @@ void** Table::write (void *ptr)
     else if ((!_available_table) && (this->get_available_now() >= this->_size_table))
       {
         _available_table = _size_table;
-        this->decrease_all_free(_size_table);
-        this->decrease_available_now(_size_table);
+        this->decrease_all_free(_size_table  * sizeof(size_t));
+        this->decrease_available_now(_size_table * sizeof(size_t));
         for (size_t i = 0; i < _size_table; i++)
             *(_back - _size_table - i) = 0;
         _size_table = _size_table * 2;
       };
 
-    //if (this->get_available_now() < _size_table)
-    //    throw AllocError(AllocErrorType::NoMemory, "NoMemory");
+    if (this->get_available_now() < _size_table)
+        throw AllocError(AllocErrorType::NoMemory, "NoMemory");
 
     for (size_t i = 0; i < _size_table; i++)  //||(!(*(_back - i)))
     {
@@ -104,6 +114,15 @@ void Table::remove (void **ptr)
  * TODO: semantics
  * @param N size_t
  */
+void Simple::move (size_t * ptr, size_t * move_ptr, size_t N)
+{
+    for (size_t i = 1; i < N + HEAD; i++)
+    {
+        *(move_ptr + i) = *(ptr + i);
+    }
+    *(reinterpret_cast <size_t **> (move_ptr )) = *(reinterpret_cast <size_t **> (ptr ));
+}
+
 Pointer Simple::alloc(size_t N)
 {
     void **p;
@@ -119,14 +138,14 @@ Pointer Simple::alloc(size_t N)
     //p = _base;
     //head:
     *(static_cast <size_t *> (this->get_free_ptr()) + 1) = M;
-    *(static_cast <size_t **> (this->get_free_ptr())) = static_cast <size_t *> (*p);//???????????  DEBAGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
+    *(static_cast <size_t ***> (this->get_free_ptr())) = reinterpret_cast <size_t **> (p);//???????????  DEBAGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
 //    *(static_cast <void **> (this->get_free_ptr())) = p;//???????????  DEBAGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
     //change free memory
     //this->move_free_ptr (static_cast <size_t *> (this->get_free_ptr()) + N + HEAD);
 //    this->move_free_ptr (static_cast <void *> (static_cast <size_t *> (this->get_free_ptr()) + N + HEAD));
     this->move_free_ptr (M + HEAD);
-    this->decrease_available_now (N + HEAD);
-    this->decrease_all_free (N + HEAD);
+    this->decrease_available_now ((M + HEAD) * sizeof(size_t));
+    this->decrease_all_free ((M + HEAD) * sizeof(size_t));
 
     return Pointer(p);
 }
@@ -153,7 +172,7 @@ void Simple::free(Pointer &p)
     size_t *ptr;
     //*p =nullptr;
     ptr = static_cast <size_t *> (p.get());
-    this->increase_all_free (*(ptr + 1));
+    this->increase_all_free (*(ptr + 1) * sizeof(size_t));
 //    this->increase_all_free (*(static_cast<size_t*> (*p._ptr) + 1));
     *ptr = 0;
     //p._ptr = nullptr;
@@ -168,7 +187,32 @@ void Simple::free(Pointer &p)
  */
 void Simple::defrag()
 {
+    size_t *ptr = nullptr;
+    size_t *move_ptr = nullptr;
+    size_t N;
 
+    ptr = static_cast <size_t *> (_base);
+
+    while (ptr < this->get_free_ptr()) // !!!!!!!!!!!!!!!!!!!!
+    {
+        N = *(ptr + 1);
+        if (!(*ptr) && !move_ptr)
+        {
+            move_ptr = reinterpret_cast <size_t *>(&ptr);
+        }
+        if (*ptr && move_ptr)
+        {
+            move (ptr, move_ptr, N);
+            //*(static_cast <size_t **> (ptr)) = move_ptr;
+            *(reinterpret_cast <size_t **> (move_ptr)) = *(reinterpret_cast <size_t **> (ptr));
+            move_ptr = move_ptr + N + HEAD;
+        }
+        ptr = ptr + N + HEAD;
+    }
+
+    if (move_ptr)
+        this->set_free_ptr (move_ptr);
+    this->increase_available_now (this->get_all_free() - this->get_available_now());
 }
 
 /**

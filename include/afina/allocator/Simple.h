@@ -23,14 +23,15 @@ class FreeMemory {
 public:
     FreeMemory(void *base, size_t size);
 //    void move_free_ptr(void *new_ptr);
-    void move_free_ptr(size_t new_ptr);
-    void *get_free_ptr();
-    void increase_available_now(size_t new_size);
-    void decrease_available_now(size_t new_size);
-    size_t get_available_now();
-    void increase_all_free(size_t new_size);
-    void decrease_all_free(size_t new_size);
-    size_t get_all_free();
+    void set_free_ptr (void *new_ptr);
+    void move_free_ptr (size_t new_ptr);
+    void *get_free_ptr ();
+    void increase_available_now (size_t new_size);
+    void decrease_available_now (size_t new_size);
+    size_t get_available_now ();
+    void increase_all_free (size_t new_size);
+    void decrease_all_free (size_t new_size);
+    size_t get_all_free ();
 
 private:
     void *_ptr;
@@ -53,6 +54,8 @@ private:
 
 class Simple : public Table {
 public:
+    void move (size_t * ptr, size_t * move_ptr, size_t N);
+
     Simple(void *base, const size_t size);
 
     /**
