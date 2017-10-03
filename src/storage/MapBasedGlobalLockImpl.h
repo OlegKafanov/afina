@@ -4,6 +4,7 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <list>
 
 #include <afina/Storage.h>
 
@@ -36,11 +37,15 @@ public:
     bool Get(const std::string &key, std::string &value) const override;
 
 private:
+    void update_key(const std::string &key);
+
     std::mutex _lock;
 
     size_t _max_size;
 
     std::map<std::string, std::string> _backend;
+
+    std::list<std::string> _keys;
 };
 
 } // namespace Backend
