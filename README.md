@@ -22,15 +22,29 @@ https://t.me/spheremt
 [user@domain build] make
 ```
 
-После этого можно запустить само приложение и/или тесты:
+# Сервер:
 ```
 [user@domain build] ./src/afina
 ```
+
+Поддерживает следующий опции:
+- --network <uv, block> какую использовать реализацию сети
+  - *uv*: демонстрационную на libuv
+  - *block*: блокирующая (домашка)
+- --storage <map_global> какую реализацию хранилища использовать
+  - *map_global*: на основе std::map с глобальным локом (домашка)
+
+Вот так можно отправить комманды:
+```
+echo -n -e "set foo 0 0 6\r\nfooval\r\n" | nc localhost 8080
+```
+обратите внимание на -e и -n
 
 # Tests
 ```
 make runAllocatorTests && ./test/allocator/runAllocatorTests - собрать и запустить тесты аллокатора
 make runExecuteTests && ./test/execute/runExecuteTests - собрать и запустить тесты комманд
+make runProtocolTests && ./test/protocol/runProtocolTests - собрать и запустить тесты парсера memcached протокола
 make runNetworkTests && ./test/network/runNetworkTests - собрать и запустить тесты сетевой подсистемы
 make runStorageTests && ./test/storage/runStorageTests - собрать и запустить тесты хранилиза данных
 ```

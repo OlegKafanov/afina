@@ -1,5 +1,7 @@
 #include "MapBasedGlobalLockImpl.h"
 
+#include <mutex>
+
 namespace Afina {
 namespace Backend {
 
@@ -31,9 +33,10 @@ bool MapBasedGlobalLockImpl::PutIfAbsent(const std::string &key, const std::stri
         this->Put(key, value);
         return true;
     }
-
+//    std::unique_lock<std::mutex> guard(_lock);
     return false;
 }
+
 
 // See MapBasedGlobalLockImpl.h
 bool MapBasedGlobalLockImpl::Set(const std::string &key, const std::string &value)
@@ -50,6 +53,7 @@ bool MapBasedGlobalLockImpl::Set(const std::string &key, const std::string &valu
         return true;
     }
 
+    std::unique_lock<std::mutex> guard(_lock);
     return false;
 }
 
@@ -66,6 +70,7 @@ bool MapBasedGlobalLockImpl::Delete(const std::string &key)
         _keys.remove(key);
         return true;
     }
+    std::unique_lock<std::mutex> guard(_lock);
     return false;
 }
 
@@ -85,6 +90,7 @@ bool MapBasedGlobalLockImpl::Get(const std::string &key, std::string &value) con
 //        update_key(key);
         return true;
     }
+    std::unique_lock<std::mutex> guard(*const_cast<std::mutex *>(&_lock));
     return false;
 }
 
