@@ -1,3 +1,9 @@
+#include <fstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+
 #include <chrono>
 #include <iostream>
 #include <memory>
@@ -33,7 +39,47 @@ void timer_handler(uv_timer_t *handle) {
 }
 
 int main(int argc, char **argv) {
-    // Build version
+    pid_t daemon_pid;
+
+    for (int i = 0; i < argc; i++)
+    {
+        if (!strcmp(argv[i], "-d"))
+        {
+            daemon_pid = fork();
+            if (daemon_pid == 0)
+            {
+                //child
+                chdir("/");
+                setsid();
+                fclose(stdin);
+                fclose(stdout);
+                fclose(stderr);
+            }
+            else if (daemon_pid > 0)
+            {
+                //parent
+                for (int j = 0; j < argc; j++)
+                {
+                    if (!strcmp(argv[j], "-p"))
+                    {
+                        std::ofstream fout (argv[j + 1]);
+                        fout << daemon_pid;
+                        fout.close();
+                    }
+                }
+
+                exit(0);
+            }
+            else
+            {
+                //error
+                fprintf(stderr,"Error: initial fork failed: %s\n", strerror(errno));
+                    return -1;
+            }
+        }
+
+    }
+
     // TODO: move into Version.h as a function
     std::stringstream app_string;
     app_string << "Afina " << Afina::Version_Major << "." << Afina::Version_Minor << "." << Afina::Version_Patch;
@@ -48,6 +94,8 @@ int main(int argc, char **argv) {
         // and simplify validation below
         options.add_options()("s,storage", "Type of storage service to use", cxxopts::value<std::string>());
         options.add_options()("n,network", "Type of network service to use", cxxopts::value<std::string>());
+        options.add_options()("d,daemon", "Use daemon mode", cxxopts::value<std::string>());
+        //options.add_options()("p", "Write afina.pid", cxxopts::value<std::string>());
         options.add_options()("h,help", "Print usage info");
         options.parse(argc, argv);
 
