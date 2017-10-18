@@ -203,36 +203,26 @@ void ServerImpl::RunAcceptor() {
 
         for (auto  it = connections.begin(); it != connections.end(); it++) {
             if (pthread_kill (*it,0)) {
+                //close (client_socket);
+                connections.erase (it);
+                it--;
+            }
+        }
+    }
+
+    //waiting for all pthreads
+    while (connections.size() > 0){
+        for (auto  it = connections.begin(); it != connections.end(); it++) {
+            if (pthread_kill (*it,0)) {
                 close (client_socket);
                 connections.erase (it);
                 it--;
             }
         }
-
-        //int status;
-        //if (pthread_join (accept_thread, &status)) {
-        //    //close (client_socket);
-        //    throw std::runtime_error("can't join worker");
-        //}
-        //else {
-        //    connections.erase (std::find (connections.begin(), connections.end(), worker));
-        //    close (client_socket);
-        //}
-
-        //// TODO: Start new thread and process data from/to connection
-        //{
-        //    std::string msg = "TODO: start new thread and process memcached protocol instead";
-        //    if (send(client_socket, msg.data(), msg.size(), 0) <= 0) {
-        //        close(client_socket);
-        //        close(server_socket);
-        //        throw std::runtime_error("Socket send() failed");
-        //    }
-        //    close(client_socket);
-        //}
     }
-
     // Cleanup on exit...
     close(server_socket);
+    pthread_exit((void*)1);
 }
 
 // See Server.h
@@ -240,7 +230,6 @@ void ServerImpl::RunConnection (int client_socket)
 {
     try{
         std::cout << "network debug: " << __PRETTY_FUNCTION__ << std::endl;
-        //std::cout << "network debug: RUNCONNECTION" << std::endl;
 
         int buf_len;
         socklen_t optlen = sizeof(buf_len);
@@ -252,16 +241,12 @@ void ServerImpl::RunConnection (int client_socket)
         std::string unparsed_buf;
         size_t parsed;
         uint32_t body_size;
-        //Protocol::Parser pars;
         bool command = false;
-        //std::cout <<  client_socket << std::endl;
-        //std::string data;
         std::cout << "buf_len: " <<buf_len << " optlen: " << optlen << std::endl;
         while (running.load())
         {
             Protocol::Parser pars;
             std::string out;
-            //std::string args;
             int n = recv (client_socket, buf, buf_len, 0);
             if (n <= 0){
                 close (client_socket);
@@ -269,13 +254,10 @@ void ServerImpl::RunConnection (int client_socket)
             }
             buf[n] = '\0';//!!!!!!!!!!!!
             unparsed_buf += std::string(buf);
-            //std::cout << "buf: "<< buf << " unparsed_buf: "<< unparsed_buf << " parsed: " << parsed << std::endl;
+
             command = pars.Parse (unparsed_buf.data(), n, parsed);
 
             unparsed_buf.erase (0, parsed);
-            //unparsed_buf = unparsed_buf.substr (parsed, unparsed_buf.size() - parsed);
-
-            //std::cout << "buf: "<< buf << " unparsed_buf: "<< unparsed_buf <<" unparsed_buf.size(): "<< unparsed_buf.size() << " parsed: " << parsed << std::endl;
 
             if (command){
                 char arg_buffer[body_size + 1];
@@ -293,25 +275,18 @@ void ServerImpl::RunConnection (int client_socket)
                         unparsed_buf += std::string(buf);
                     }
                 }
-                //std::cout << "buf: "<< buf << " unparsed_buf: "<< unparsed_buf <<" unparsed_buf.size(): "<< unparsed_buf.size() << " parsed: " << parsed << std::endl;
-
-                //std::copy(unparsed_buf.begin(), unparsed_buf.begin() + body_size, args.begin());
                 unparsed_buf.copy(arg_buffer, body_size, 0);
                 arg_buffer[body_size] = '\0';
                 unparsed_buf.erase (0, body_size + 2);
-                //std::cout << "args.data(): "<< args.data() << " args.size(): " << args.size() << std::endl;
-                //std::cout << "arg_buffer: "<< arg_buffer << " std::string(arg_buffer): " << std::string(arg_buffer) << std::endl;
 
                 com->Execute(*this->pStorage, std::string(arg_buffer), out);
-                //com->Execute(*this->pStorage, args, out);
-                std::cout << "out.data(): "<< out.data() << " out.size(): " << out.size() << std::endl;
+
                 if (out.size() > 0){
                     if (send (client_socket, out.data(), out.size(), 0) <= 0) {
                         close(client_socket);
                         throw std::runtime_error("Socket send failed");
                     }
                 }
-                //std::cout<<"command"<<std::endl;
                 command = false;
             }
         }
@@ -323,6 +298,7 @@ void ServerImpl::RunConnection (int client_socket)
         err += std::string(e.what()); //<< std::endl;
         send (client_socket, err.data(), err.size(), 0);
     }
+    pthread_exit((void*)client_socket);
     return;
 }
 
