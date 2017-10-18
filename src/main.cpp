@@ -157,7 +157,7 @@ int main(int argc, char **argv) {
     // Start services
     try {
         app.storage->Start();
-        app.server->Start(8080);
+        app.server->Start(8080, 64);
 
         // Freeze current thread and process events
         std::cout << "Application started" << std::endl;

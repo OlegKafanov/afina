@@ -203,6 +203,7 @@ void ServerImpl::RunAcceptor() {
 
         for (auto  it = connections.begin(); it != connections.end(); it++) {
             if (pthread_kill (*it,0)) {
+                close (client_socket);
                 connections.erase (it);
                 it--;
             }
@@ -237,82 +238,91 @@ void ServerImpl::RunAcceptor() {
 // See Server.h
 void ServerImpl::RunConnection (int client_socket)
 {
-    std::cout << "network debug: " << __PRETTY_FUNCTION__ << std::endl;
-    //std::cout << "network debug: RUNCONNECTION" << std::endl;
+    try{
+        std::cout << "network debug: " << __PRETTY_FUNCTION__ << std::endl;
+        //std::cout << "network debug: RUNCONNECTION" << std::endl;
 
-    int buf_len;
-    socklen_t optlen = sizeof(buf_len);
-    if (getsockopt(client_socket, SOL_SOCKET, SO_SNDBUF, &buf_len, &optlen)) {
-        throw std::runtime_error("Socket getsockopt() failed");
-    }
-
-    char buf[buf_len + 1];
-    std::string unparsed_buf;
-    size_t parsed;
-    uint32_t body_size;
-    //Protocol::Parser pars;
-    Protocol::Parser pars;
-    bool command = false;
-    //std::cout <<  client_socket << std::endl;
-    //std::string data;
-    std::cout << "buf_len: " <<buf_len << " optlen: " << optlen << std::endl;
-
-    while (running.load())
-    {
-        std::string out;
-        //std::string args;
-        int n = recv (client_socket, buf, buf_len, 0);
-        if (n <= 0){
-            close (client_socket);
-            throw std::runtime_error("break connection");
+        int buf_len;
+        socklen_t optlen = sizeof(buf_len);
+        if (getsockopt(client_socket, SOL_SOCKET, SO_SNDBUF, &buf_len, &optlen)) {
+            throw std::runtime_error("Socket getsockopt() failed");
         }
-        buf[n] = '\0';//!!!!!!!!!!!!
-        unparsed_buf += std::string(buf);
-        //std::cout << "buf: "<< buf << " unparsed_buf: "<< unparsed_buf << " parsed: " << parsed << std::endl;
-        command = pars.Parse (unparsed_buf.data(), n, parsed);
 
-        unparsed_buf.erase (0, parsed);
-        //unparsed_buf = unparsed_buf.substr (parsed, unparsed_buf.size() - parsed);
-
-        //std::cout << "buf: "<< buf << " unparsed_buf: "<< unparsed_buf <<" unparsed_buf.size(): "<< unparsed_buf.size() << " parsed: " << parsed << std::endl;
-
-        if (command){
-            char arg_buffer[body_size + 1];
-            int m;
-            auto com = pars.Build(body_size);
-
-            if (body_size > 0) {
-                while (unparsed_buf.size() < body_size) {
-                    m = recv (client_socket, buf, buf_len, 0);
-                    if (m <= 0) {
-                      close(client_socket);
-                      throw std::runtime_error("socket recv failed: can't read args");
-                    }
-                    buf[m] = '\0';//!!!!!!!!!!!
-                    unparsed_buf += std::string(buf);
-                }
+        char buf[buf_len + 1];
+        std::string unparsed_buf;
+        size_t parsed;
+        uint32_t body_size;
+        //Protocol::Parser pars;
+        bool command = false;
+        //std::cout <<  client_socket << std::endl;
+        //std::string data;
+        std::cout << "buf_len: " <<buf_len << " optlen: " << optlen << std::endl;
+        while (running.load())
+        {
+            Protocol::Parser pars;
+            std::string out;
+            //std::string args;
+            int n = recv (client_socket, buf, buf_len, 0);
+            if (n <= 0){
+                close (client_socket);
+                throw std::runtime_error("break connection");
             }
+            buf[n] = '\0';//!!!!!!!!!!!!
+            unparsed_buf += std::string(buf);
+            //std::cout << "buf: "<< buf << " unparsed_buf: "<< unparsed_buf << " parsed: " << parsed << std::endl;
+            command = pars.Parse (unparsed_buf.data(), n, parsed);
+
+            unparsed_buf.erase (0, parsed);
+            //unparsed_buf = unparsed_buf.substr (parsed, unparsed_buf.size() - parsed);
+
             //std::cout << "buf: "<< buf << " unparsed_buf: "<< unparsed_buf <<" unparsed_buf.size(): "<< unparsed_buf.size() << " parsed: " << parsed << std::endl;
 
-            //std::copy(unparsed_buf.begin(), unparsed_buf.begin() + body_size, args.begin());
-            unparsed_buf.copy(arg_buffer, body_size, 0);
-            arg_buffer[body_size] = '\0';
-            unparsed_buf.erase (0, body_size);
-            //std::cout << "args.data(): "<< args.data() << " args.size(): " << args.size() << std::endl;
-            //std::cout << "arg_buffer: "<< arg_buffer << " std::string(arg_buffer): " << std::string(arg_buffer) << std::endl;
+            if (command){
+                char arg_buffer[body_size + 1];
+                int m;
+                auto com = pars.Build(body_size);
 
-            com->Execute(*this->pStorage, std::string(arg_buffer), out);
-            //com->Execute(*this->pStorage, args, out);
-            //std::cout << "out.data(): "<< out.data() << " out.size(): " << out.size() << std::endl;
-            if (send (client_socket, out.data(), out.size(), 0) <= 0) {
-                close(client_socket);
-                throw std::runtime_error("Socket send failed");
+                if (body_size > 0) {
+                    while (unparsed_buf.size() < body_size) {
+                        m = recv (client_socket, buf, buf_len, 0);
+                        if (m <= 0) {
+                          close(client_socket);
+                          throw std::runtime_error("socket recv failed: can't read args");
+                        }
+                        buf[m] = '\0';//!!!!!!!!!!!
+                        unparsed_buf += std::string(buf);
+                    }
+                }
+                //std::cout << "buf: "<< buf << " unparsed_buf: "<< unparsed_buf <<" unparsed_buf.size(): "<< unparsed_buf.size() << " parsed: " << parsed << std::endl;
+
+                //std::copy(unparsed_buf.begin(), unparsed_buf.begin() + body_size, args.begin());
+                unparsed_buf.copy(arg_buffer, body_size, 0);
+                arg_buffer[body_size] = '\0';
+                unparsed_buf.erase (0, body_size + 2);
+                //std::cout << "args.data(): "<< args.data() << " args.size(): " << args.size() << std::endl;
+                //std::cout << "arg_buffer: "<< arg_buffer << " std::string(arg_buffer): " << std::string(arg_buffer) << std::endl;
+
+                com->Execute(*this->pStorage, std::string(arg_buffer), out);
+                //com->Execute(*this->pStorage, args, out);
+                std::cout << "out.data(): "<< out.data() << " out.size(): " << out.size() << std::endl;
+                if (out.size() > 0){
+                    if (send (client_socket, out.data(), out.size(), 0) <= 0) {
+                        close(client_socket);
+                        throw std::runtime_error("Socket send failed");
+                    }
+                }
+                //std::cout<<"command"<<std::endl;
+                command = false;
             }
-            //std::cout<<"command"<<std::endl;
-            command = false;
         }
+        close (client_socket);
+
+    }   catch (std::exception &e) {
+        std::string err;
+        err += "SERVER_ERROR ";
+        err += std::string(e.what()); //<< std::endl;
+        send (client_socket, err.data(), err.size(), 0);
     }
-    close (client_socket);
     return;
 }
 
