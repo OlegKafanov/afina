@@ -5,11 +5,17 @@
 #include <vector>
 #include <pthread.h>
 
+#include <protocol/Parser.h>
 #include <afina/network/Server.h>
 
 namespace Afina {
 namespace Network {
 namespace Blocking {
+
+typedef struct st_args {
+   void* this_ptr;
+   size_t client_socket;
+} st_args;
 
 /**
  * # Network resource manager implementation
@@ -38,10 +44,11 @@ protected:
     /**
      * Methos is running for each connection
      */
-    void RunConnection();
+    void RunConnection (int client_socket);
 
 private:
     static void *RunAcceptorProxy(void *p);
+    static void *RunConnectionProxy (void *arguments);
 
     // Atomic flag to notify threads when it is time to stop. Note that
     // flag must be atomic in order to safely publisj changes cross thread
