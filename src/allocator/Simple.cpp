@@ -3,7 +3,7 @@
 #include <afina/allocator/Pointer.h>
 #include <afina/allocator/Error.h>
 
-#define HEAD 2
+#define HEAD 10
 
 namespace Afina {
 namespace Allocator {
@@ -110,7 +110,7 @@ void Table::remove (void **ptr)
  * TODO: semantics
  * @param N size_t
  */
-void Simple::move (size_t * ptr, size_t * move_ptr, size_t N)
+void Simple::move (size_t *ptr, size_t *move_ptr, size_t N)
 {
     for (size_t i = 1; i < N + HEAD; i++)
     {
@@ -160,10 +160,10 @@ void Simple::realloc(Pointer &p, size_t N)
 
     size_t * ptr = static_cast <size_t *>(p.get());
 
-    if (N <= *(ptr - 1) * sizeof (size_t))
+    if (N <= *(ptr - HEAD + 1) * sizeof (size_t))
     {
-        this->increase_all_free (*(ptr - 1) - N / sizeof (size_t));
-        *(ptr - 1) = *(ptr - 1) - N / sizeof (size_t);
+        this->increase_all_free (*(ptr - HEAD + 1) - N / sizeof (size_t));
+        *(ptr - HEAD + 1) = *(ptr - HEAD + 1) - N / sizeof (size_t);
     }
     else if (N > this->get_available_now())
     {
@@ -171,9 +171,9 @@ void Simple::realloc(Pointer &p, size_t N)
     }
     else
     {
-            if (ptr + *(ptr - 1) == this->get_free_ptr())
+            if (ptr + *(ptr - HEAD + 1) == this->get_free_ptr())
         {
-            *(ptr - 1) = *(ptr - 1) + M;
+            *(ptr - HEAD + 1) = *(ptr - HEAD + 1) + M;
             this->decrease_available_now(M);
             this->decrease_all_free(M);
             this->move_free_ptr(M);
@@ -181,8 +181,8 @@ void Simple::realloc(Pointer &p, size_t N)
         else
         {
             tmp_pointer = alloc(N);
-            move (ptr, static_cast <size_t *> (tmp_pointer.get()), *(ptr - 1));
-            *(ptr - 1) = N;
+            move (ptr, static_cast <size_t *> (tmp_pointer.get()), *(ptr - HEAD + 1));
+            *(ptr - HEAD + 1) = N;
             free(p);
         }
     }
@@ -198,8 +198,8 @@ void Simple::free(Pointer &p)
 {
     size_t *ptr;
     ptr = static_cast <size_t *> (p.get());
-    this->increase_all_free (*(ptr - 1) * sizeof(size_t));
-    *(ptr - 2) = 0;
+    this->increase_all_free (*(ptr - HEAD + 1) * sizeof(size_t));
+    *(ptr - HEAD) = 0;
     this->remove(p._ptr);
     p._ptr = nullptr;
     p.~Pointer();

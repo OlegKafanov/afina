@@ -10,6 +10,7 @@
 #include <afina/execute/Delete.h>
 #include <afina/execute/Get.h>
 #include <afina/execute/Set.h>
+#include <afina/execute/Replace.h>
 
 namespace Afina {
 namespace Protocol {
@@ -29,7 +30,7 @@ bool Parser::Parse(const char *input, const size_t size, size_t &parsed) {
         case State::sName: {
             if (c == ' ') {
                 // std::cout << "parser debug: name='" << name << "'" << std::endl;
-                if (name == "set" || name == "add" || name == "append" || name == "prepend") {
+                if (name == "set" || name == "add" || name == "append" || name == "prepend" || name == "replace") {
                     state = State::spKey;
                 } else if (name == "get" || name == "gets") {
                     state = State::sgKey;
@@ -172,6 +173,8 @@ std::unique_ptr<Execute::Command> Parser::Build(uint32_t &body_size) const {
         return std::unique_ptr<Execute::Command>(new Execute::Add(keys[0], flags, exprtime));
     } else if (name == "append") {
         return std::unique_ptr<Execute::Command>(new Execute::Append(keys[0], flags, exprtime));
+    } else if (name == "replace") {
+        return std::unique_ptr<Execute::Command>(new Execute::Replace(keys[0], flags, exprtime));
     } else if (name == "get") {
         return std::unique_ptr<Execute::Command>(new Execute::Get(keys));
     } else {

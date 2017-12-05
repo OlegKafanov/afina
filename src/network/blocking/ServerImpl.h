@@ -79,7 +79,8 @@ private:
 
     // Threads that are processing connection data, permits
     // access only from inside of accept_thread
-    std::unordered_set<pthread_t> connections;
+    //std::unordered_set<pthread_t> connections;
+    std::vector<pthread_t> connections;
 };
 
 } // namespace Blocking

@@ -6,6 +6,7 @@
 #include <memory>
 #include <stdexcept>
 #include <algorithm>
+//#include <mutex>
 
 #include <pthread.h>
 #include <signal.h>
@@ -240,65 +241,98 @@ void ServerImpl::RunConnection (int client_socket)
         char buf[buf_len + 1];
         std::string unparsed_buf;
         size_t parsed;
-        uint32_t body_size;
+        uint32_t body_size = 0;
         bool command = false;
         std::cout << "buf_len: " <<buf_len << " optlen: " << optlen << std::endl;
+        Protocol::Parser pars;
         while (running.load())
         {
-            Protocol::Parser pars;
-            std::string out;
-            int n = recv (client_socket, buf, buf_len, 0);
-            if (n <= 0){
-                close (client_socket);
-                throw std::runtime_error("break connection");
-            }
-            buf[n] = '\0';//!!!!!!!!!!!!
-            unparsed_buf += std::string(buf);
+            try{
+                //Protocol::Parser pars;
+                std::string out;
+                int n = recv (client_socket, buf, buf_len, 0);
+                int m = 0;
+                int old_len = 0;
+                if (n <= 0){
+                    close (client_socket);
+                    throw std::runtime_error("break connection)))");
+                }
+                buf[n] = '\0';//!!!!!!!!!!!!
+                unparsed_buf += std::string(buf);
 
-            command = pars.Parse (unparsed_buf.data(), n, parsed);
+                command = pars.Parse (unparsed_buf.data(), n + old_len, parsed);
+                old_len = 0;
+                //m = 0;
+                //body_size = 0;
 
-            unparsed_buf.erase (0, parsed);
+                //if (n <= 0 && !command){
+                //    close (client_socket);
+                //    throw std::runtime_error("break connection)))");
+                //}
 
-            if (command){
-                char arg_buffer[body_size + 1];
-                int m;
-                auto com = pars.Build(body_size);
+                unparsed_buf.erase (0, parsed);
 
-                if (body_size > 0) {
-                    while (unparsed_buf.size() < body_size) {
-                        m = recv (client_socket, buf, buf_len, 0);
-                        if (m <= 0) {
-                          close(client_socket);
-                          throw std::runtime_error("socket recv failed: can't read args");
+                if (command){
+                    command = false;
+                    char arg_buffer[body_size + 1];
+                    //int m;
+                    auto com = pars.Build(body_size);
+
+                    if (body_size > 0) {
+                        while (unparsed_buf.size() < body_size) {
+                            m = recv (client_socket, buf, buf_len, 0);
+                            if (m <= 0) {
+                              close(client_socket);
+                              throw std::runtime_error("socket recv failed: can't read args");
+                            }
+                            buf[m] = '\0';//!!!!!!!!!!!
+                            unparsed_buf += std::string(buf);
                         }
-                        buf[m] = '\0';//!!!!!!!!!!!
-                        unparsed_buf += std::string(buf);
+
+                        unparsed_buf.copy(arg_buffer, body_size, 0);
+                        arg_buffer[body_size] = '\0';
+
+                        unparsed_buf.erase (0, body_size);
+                        if (unparsed_buf.data()[0] == '\r' && unparsed_buf.data()[1] == '\n')
+                            unparsed_buf.erase (0, 2);
+                        //unparsed_buf.erase (0, body_size + 2);
+                    }
+                    else
+                    {
+                    //    unparsed_buf.copy(arg_buffer, body_size, 0);
+                        arg_buffer[0] = '\0';
+                    }
+                    //std::unique_lock<std::mutex> __lock(connections_mutex);//&&&&&&&&&&
+                    old_len = unparsed_buf.size();
+                    com->Execute(*this->pStorage, std::string(arg_buffer), out);
+                    //__lock.unlock();//&&&&&&&&&&&&&&&
+                    if (out.size() > 0){
+                        out += '\n';
+                        if (send (client_socket, out.data(), out.size(), 0) <= 0) {
+                            close(client_socket);
+                            throw std::runtime_error("Socket send failed");
+                        }
                     }
                 }
-                unparsed_buf.copy(arg_buffer, body_size, 0);
-                arg_buffer[body_size] = '\0';
-                unparsed_buf.erase (0, body_size + 2);
-
-                com->Execute(*this->pStorage, std::string(arg_buffer), out);
-
-                if (out.size() > 0){
-                    if (send (client_socket, out.data(), out.size(), 0) <= 0) {
-                        close(client_socket);
-                        throw std::runtime_error("Socket send failed");
-                    }
-                }
-                command = false;
+            }
+            catch (std::exception &e) {
+                std::string err;
+                err += "SERVER_ERROR ";
+                err += std::string(e.what()); //<< std::endl;
+                send (client_socket, err.data(), err.size(), 0);
+                pars.Reset();//reset parser
             }
         }
         close (client_socket);
 
     }   catch (std::exception &e) {
-        std::string err;
-        err += "SERVER_ERROR ";
-        err += std::string(e.what()); //<< std::endl;
-        send (client_socket, err.data(), err.size(), 0);
-    }
-    pthread_exit((void*)client_socket);
+            std::string err;
+            err += "SERVER_ERROR ";
+            err += std::string(e.what()); //<< std::endl;
+            send (client_socket, err.data(), err.size(), 0);
+        }
+//    pthread_exit((void*)client_socket);
+    pthread_exit(static_cast<void*>(&client_socket));
     return;
 }
 
