@@ -19,6 +19,8 @@
 #include "Utils.h"
 #include "Worker.h"
 
+//#include <libexplain/setsockopt.h>
+
 namespace Afina {
 namespace Network {
 namespace NonBlocking {
@@ -56,10 +58,17 @@ void ServerImpl::Start(uint32_t port, uint16_t n_workers) {
     }
 
     int opts = 1;
-    if (setsockopt(server_socket, SOL_SOCKET, 0, &opts, sizeof(opts)) == -1) {
+    //if (setsockopt(server_socket, SOL_SOCKET, 0, &opts, sizeof(opts)) == -1) {
+    if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opts, sizeof(opts)) == -1) {
         close(server_socket);
         throw std::runtime_error("Socket setsockopt() failed");
     }
+
+    //if (setsockopt(server_socket, SOL_SOCKET, 0, &opts, sizeof(opts)) < 0)
+    //{
+    //    fprintf(stderr, "%s\n", explain_setsockopt(server_socket, SOL_SOCKET, 0, &opts, sizeof(opts));
+    //    exit(EXIT_FAILURE);
+    //}
 
     if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
         close(server_socket);

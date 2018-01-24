@@ -11,9 +11,9 @@
 #include <afina/execute/Get.h>
 #include <afina/execute/Set.h>
 //<<<<<<< HEAD
-//#include <afina/execute/Replace.h>
+#include <afina/execute/Replace.h>
 //=======
-#include <afina/execute/Stats.h>
+//#include <afina/execute/Stats.h>
 //>>>>>>> afina/master
 
 namespace Afina {
@@ -181,8 +181,8 @@ std::unique_ptr<Execute::Command> Parser::Build(uint32_t &body_size) const {
         return std::unique_ptr<Execute::Command>(new Execute::Replace(keys[0], flags, exprtime));
     } else if (name == "get") {
         return std::unique_ptr<Execute::Command>(new Execute::Get(keys));
-    } else if (name == "stats") {
-        return std::unique_ptr<Execute::Command>(new Execute::Stats());
+//    } else if (name == "stats") {
+//        return std::unique_ptr<Execute::Command>(new Execute::Stats());
     } else {
         throw std::runtime_error("Unsupported command");
     }

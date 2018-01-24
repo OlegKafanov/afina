@@ -1,6 +1,8 @@
 #ifndef AFINA_NETWORK_NONBLOCKING_WORKER_H
 #define AFINA_NETWORK_NONBLOCKING_WORKER_H
 
+//#include <atomic>
+
 #include <memory>
 #include <pthread.h>
 
@@ -22,6 +24,7 @@ public:
     Worker(std::shared_ptr<Afina::Storage> ps);
     ~Worker();
 
+    //static int Worker::make_socket_non_blocking(int sfd);
     /**
      * Spaws new background thread that is doing epoll on the given server
      * socket. Once connection accepted it must be registered and being processed
@@ -43,14 +46,22 @@ public:
      */
     void Join();
 
+
+    void Work(char *buf, size_t);
+
 protected:
     /**
      * Method executing by background thread
      */
-    void OnRun(void *args);
+    //void OnRun(void *args);
+    void OnRun(int sfd);
 
 private:
     pthread_t thread;
+    std::shared_ptr<Afina::Storage> pStorage;
+    bool running;
+    //    std::atomic<bool> running;
+
 };
 
 } // namespace NonBlocking

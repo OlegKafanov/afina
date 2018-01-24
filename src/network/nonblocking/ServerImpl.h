@@ -22,7 +22,7 @@ public:
     ~ServerImpl();
 
     // See Server.h
-    void Start(uint32_t port, uint16_t workers) override;
+    void Start(uint32_t port, uint16_t workers);// override;
 
     // See Server.h
     void Stop() override;

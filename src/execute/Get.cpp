@@ -24,6 +24,8 @@ to indicate the end of response.
 void Get::Execute(Storage &storage, const std::string &args, std::string &out) {
     std::stringstream keyStream;
     copy(_keys.begin(), _keys.end(), std::ostream_iterator<std::string>(keyStream, " "));
+    //keyStream >> 2;
+    //std::cout << "Get(" << keyStream.str().substr(0,3) << ")" << std::endl;
     std::cout << "Get(" << keyStream.str() << ")" << std::endl;
 
     std::stringstream outStream;
