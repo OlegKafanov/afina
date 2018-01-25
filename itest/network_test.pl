@@ -187,7 +187,7 @@ afina_test(
 	"Must report unknown command error to user",
 	1
 );
-=comment
+
 afina_test(
 	"get var\r\r",
 	qr/ERROR/,
@@ -217,6 +217,6 @@ afina_test(
 	"Correct result of partially written command",
 	0
 );
-=cut
+
 
 

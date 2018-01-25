@@ -21,6 +21,8 @@ namespace NonBlocking {
  */
 class Worker {
 public:
+    static void *RunProxy(void *p);
+
     Worker(std::shared_ptr<Afina::Storage> ps);
     ~Worker();
 
@@ -60,6 +62,7 @@ private:
     pthread_t thread;
     std::shared_ptr<Afina::Storage> pStorage;
     bool running;
+    int server_socket;
     //    std::atomic<bool> running;
 
 };

@@ -24,7 +24,7 @@
 
 #include <afina/Storage.h>
 
-#define MAXEVENTS 64
+#define MAXEVENTS 16
 
 namespace Afina {
 namespace Network {
@@ -40,33 +40,17 @@ Worker::Worker(std::shared_ptr<Afina::Storage> ps) {
 Worker::~Worker() {
     // TODO: implementation here
 }
-/*
-static int Worker::make_socket_non_blocking(int sfd) {
-    int flags, s;
-
-    flags = fcntl(sfd, F_GETFL, 0);
-    if (flags == -1) {
-        perror("fcntl");
-        return -1;
-    }
-
-    flags |= O_NONBLOCK;
-    s = fcntl(sfd, F_SETFL, flags);
-    if (s == -1) {
-        perror("fcntl");
-        return -1;
-    }
-
-    return 0;
-}
-*/
 // See Worker.h
 void Worker::Start(int server_socket) {
     std::cout << "network debug: " << __PRETTY_FUNCTION__ << std::endl;
     // TODO: implementation here
-    this->OnRun(server_socket);
+    //this->OnRun(server_socket);
     //running.store(true);
     running = true;
+    this->server_socket = server_socket;
+    if (pthread_create(&thread, NULL, Worker::RunProxy, this) < 0) {
+        throw std::runtime_error("Could not create server thread");
+    }
 }
 
 // See Worker.h
@@ -84,6 +68,16 @@ void Worker::Join() {
     pthread_join(thread, 0);
 }
 
+void *Worker::RunProxy(void *p) {
+    Worker *server = reinterpret_cast<Worker *>(p);
+    try {
+        server->OnRun(server->server_socket);
+    } catch (std::runtime_error &ex) {
+        std::cerr << "Server fails: " << ex.what() << std::endl;
+    }
+    return 0;
+}
+
 // See Worker.h
 //void Worker::OnRun(void *args) {
 void Worker::OnRun(int sfd) {
@@ -94,18 +88,14 @@ void Worker::OnRun(int sfd) {
     struct epoll_event event;
     struct epoll_event *events;
 
-    //std::cout << "help me 1";
-
     efd = epoll_create1(0);
     if (efd == -1) {
         perror("epoll_create");
         abort();
     }
 
-    //std::cout << "help me 2";
-
     event.data.fd = sfd;
-    event.events = EPOLLIN | EPOLLET;
+    event.events = EPOLLIN | EPOLLET; //| EPOLLEXCLUSIVE; // (was not declared in this scope)
     s = epoll_ctl(efd, EPOLL_CTL_ADD, sfd, &event);
     if (s == -1) {
         perror("epoll_ctl");
@@ -113,10 +103,6 @@ void Worker::OnRun(int sfd) {
     }
 
     events = (epoll_event*)calloc(MAXEVENTS, sizeof event);
-
-    //std::cout << "help me 3";
-
-    //std::cout << running << "!!!";
 
     while(running)
     {
@@ -210,9 +196,7 @@ void Worker::OnRun(int sfd) {
                     //FUNCTIONNNNNNNNNNNNNN
                     /* Write the buffer to standard output */
 
-                    //Work(buf, count);
                     Work(buf, events[i].data.fd);
-                    //send(events[i].data.fd, buf, std::string(buf).size() - 4, 0);
 
                     //s = write(1, buf, count);
                     //if (s == -1) {
@@ -253,16 +237,6 @@ void Worker::OnRun(int sfd) {
 
 void Worker::Work(char *buf_, size_t client_socket)
 {
-    //auto cut_buf = [](std::string &buf) {
-    //        int found = buf.find("\n");
-    //        std::cout<<"found: "<<found<<std::endl;
-    //        if (found != std::string::npos)
-    //        //buf = buf.substr(found, buf.size() - found);
-    //            buf = buf.substr(0, 3);
-    //
-    //        else
-    //            buf = "";
-    //    };
 
     Protocol::Parser parser;
     parser.Reset();
@@ -270,23 +244,24 @@ void Worker::Work(char *buf_, size_t client_socket)
     size_t parsed = 0;
     bool ready_to_command = false;
     bool stop = false;
-    //cut_buf(buf);
     std::string buf;// = std::string(buf_);
     std::cout<<"buf_0:"<<buf<<std::endl;
     std::string unparsed_buf = std::string(buf_);
-    //int i = 0;
+
     while (!stop && unparsed_buf.size() ) {
-        //i ++;
+        parser.Reset();
         try {
             ready_to_command = parser.Parse(unparsed_buf, parsed);
         } catch (std::runtime_error &ex) {
             //std::cout<<"here_1"<<std::endl;
 
-            std::string error = std::string("SERVER_ERROR ") + ex.what() + "\n";
+            std::string error = std::string("SERVER_ERROR 0") + ex.what() + "\n";
+            std::cout << error<< "start: " << unparsed_buf<< " :end"<< std::endl;
             if (send(client_socket, error.data(), error.size(), 0) <= 0) {
                 close(client_socket);
             }
-
+            close(client_socket);
+            //unparsed_buf = "";
         }
 
         //std::cout<<"buf_1:"<<buf<<std::endl;
@@ -295,7 +270,9 @@ void Worker::Work(char *buf_, size_t client_socket)
         //    std::cout<<"READY\n";
         //}
 
-        unparsed_buf.erase(0, parsed);
+        //buf = unparsed_buf.substr(0, found);
+
+
 
         //buf = buf.substr(parsed, buf.size() - parsed);
 
@@ -307,8 +284,14 @@ void Worker::Work(char *buf_, size_t client_socket)
 
         if (body_size)
         {
+            auto found = unparsed_buf.find_first_of("\r\n");
+            unparsed_buf.erase(0, found + 2);
+
             buf = unparsed_buf.substr(0, body_size);
             std::string out;
+
+            if(!buf.size())
+                break;
             try {
                 command->Execute(*this->pStorage, buf.substr(0, body_size), out);
                 out += "\r\n";
@@ -318,14 +301,16 @@ void Worker::Work(char *buf_, size_t client_socket)
                     std::cout<<"not send\n"<<std::endl;
                 }
             } catch (std::runtime_error &ex) {
-                std::string error = std::string("SERVER_ERROR ") + ex.what() + "\n";
+                std::string error = std::string("SERVER_ERROR 1 ") + ex.what() + "\n";
                 if (send(client_socket, error.data(), error.size(), 0) <= 0) {
                     close(client_socket);
                     std::cout<<"not send2\n"<<std::endl;
                 }
-                close(client_socket);
+                close(client_socket);               
+                unparsed_buf = "";
+                body_size = 0;
             }
-            stop = true;
+            //stop = true;
             unparsed_buf.erase(0, body_size + 2);
         }
 
@@ -338,14 +323,15 @@ void Worker::Work(char *buf_, size_t client_socket)
         //}
 
         //GET
-        else if(!body_size)
+        else //if(!body_size)
         {
             //cut_buf(buf);
             //buf = buf.substr(3, buf.size());
             //body_size = buf.size()-3;
             auto found = unparsed_buf.find_first_of("\r\n");
             buf = unparsed_buf.substr(0, found);
-
+            if(!buf.size())
+                break;
             std::string out;
             try {
                 command->Execute(*this->pStorage, buf, out);
@@ -356,21 +342,22 @@ void Worker::Work(char *buf_, size_t client_socket)
                     std::cout<<"not send\n"<<std::endl;
                 }
             } catch (std::runtime_error &ex) {
-                std::string error = std::string("SERVER_ERROR ") + ex.what() + "\n";
+                std::string error = std::string("SERVER_ERROR 2 ") + ex.what() + "\n";
                 if (send(client_socket, error.data(), error.size(), 0) <= 0) {
                     close(client_socket);
                     std::cout<<"not send2\n"<<std::endl;
                 }
                 close(client_socket);
             }
-            stop = true;
+            //stop = true;
 
             unparsed_buf.erase(0, found + 2);
         }
 
-        std::cout<<"unparsed_buf: "<<unparsed_buf<<std::endl;
+        std::cout<<"unparsed_buf.size(): "<<unparsed_buf.size()<<std::endl;
 
-
+        if(unparsed_buf.size() < 3)
+            unparsed_buf = "";
 
         std::cout<<"body_size: "<<body_size <<std::endl;
 
