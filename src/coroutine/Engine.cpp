@@ -11,8 +11,10 @@ void Engine::Store(context &ctx) {
         volatile char stack_end;
         if (std::get<0>(ctx.Stack) != nullptr)
                 delete[] std::get<0>(ctx.Stack);
+        //не удалять просто
         uint32_t len = StackBottom - &stack_end;
         ctx.Stack = std::make_tuple(new char[len], len);
+        //куда растет стек
         memcpy(std::get<0>(ctx.Stack), (const void*)&stack_end, len);
 }
 
@@ -28,7 +30,9 @@ void Engine::Restore(context &ctx) {
         longjmp(ctx.Environment, 1);
 }
 
+//idle контекст: зачем нужен -вопрос. Когда закончится функция, размотка стека,
 void Engine::yield() {
+    //проверить, что не на текущую
         if (alive != nullptr) {
                 context *ctx = alive;
                 alive = alive->next;
@@ -38,7 +42,7 @@ void Engine::yield() {
 
 void Engine::sched(void *routine_) {
         context *ctx = (context*)routine_;
-
+//проверить, что не текущую
         if (cur_routine != nullptr) {
                 Store(*cur_routine);
                  if (setjmp(cur_routine->Environment) > 0) {

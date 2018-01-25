@@ -194,7 +194,7 @@ afina_test(
 	"Must report desync errors to user",
 	1
 );
-
+=comments
 afina_test(
 	sub {
 		my $socket = shift;
@@ -217,6 +217,6 @@ afina_test(
 	"Correct result of partially written command",
 	0
 );
-
+=cut
 
 
