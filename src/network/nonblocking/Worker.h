@@ -6,6 +6,14 @@
 #include <memory>
 #include <pthread.h>
 
+#include <sys/uio.h>
+#include <iostream>
+#include <string.h>
+#include <utility>
+#include <string>
+#include <sys/uio.h>
+#include <unistd.h>
+
 namespace Afina {
 
 // Forward declaration, see afina/Storage.h
@@ -66,6 +74,7 @@ private:
     //    std::atomic<bool> running;
 
 };
+
 
 } // namespace NonBlocking
 } // namespace Network

@@ -233,8 +233,71 @@ void Worker::OnRun(int sfd) {
     // for events to avoid thundering herd type behavior.
 }
 
+class Iovec{
+public:
+    Iovec():size(0){
+        for (int i = 0; i < 100; i++)
+        {
+            iov[i].iov_base = nullptr;
+            iov[i].iov_len = 0;
+        }
+    }
+    //void move(int n, int m);
+    void move(ssize_t bytes);
+    void push(std::string buf);
+    //struct iovec iov();
+    struct iovec iov[100];
+    size_t size;
+
+private:
+    size_t shift;
+};
+
+void Iovec::push(std::string buf){
+    //iov[size].iov_base = static_cast<void*>(buf.data());
+    char new_buf[buf.size()];
+    memcpy(new_buf, buf.data(), buf.size());
+    iov[size].iov_base = new_buf;
+    iov[size].iov_len = buf.size();
+    size += 1;
+}
+void Iovec::move(ssize_t bytes){
+    int m = 0, n = 0;
+    if(shift)
+    {
+        iov[0].iov_len -= shift;
+        iov[0].iov_base = static_cast<char*>(iov[0].iov_base) + static_cast<char>(shift);
+    }
+    for (int i = 0; i < size; i++)
+    {
+        if(iov[i].iov_len <= bytes)
+        {
+            n += 1;
+            bytes -= iov[i].iov_len;
+        }
+        else
+        {
+            m = bytes;
+            break;
+        }
+    }
+    for (int i = 0; i < size; i++)
+    {
+        iov[i].iov_base = iov[i + n].iov_base;
+        iov[i].iov_len = iov[i + n].iov_len;
+    }
+    iov[0].iov_len -= m;
+    iov[0].iov_base = static_cast<char*>(iov[0].iov_base) + static_cast<char>(m);
+    size -= n;
+
+    shift = m;
+    //std::cout<<n << " " << m ;
+}
+
 void Worker::Work(char *buf_, size_t client_socket, int n)
 {
+    Iovec iov_out;
+    ssize_t nwritten;
 
     Protocol::Parser parser;
     parser.Reset();
@@ -255,12 +318,8 @@ void Worker::Work(char *buf_, size_t client_socket, int n)
         } catch (std::runtime_error &ex) {
 
             std::string error = std::string("SERVER_ERROR ") + ex.what() + "\n";
-            std::cout << error<< "start: " << unparsed_buf<< " :end"<< std::endl;
-            if (send(client_socket, error.data(), error.size(), 0) <= 0) {
-                close(client_socket);
-                std::cout<<"not send2\n"<<std::endl;
-            }
-            stop = true;
+            iov_out.push(error);
+            //stop = true;
         }
 
 //        unparsed_buf2.erase(0, parsed);
@@ -285,20 +344,10 @@ void Worker::Work(char *buf_, size_t client_socket, int n)
                     command->Execute(*this->pStorage, buf, out);
                     //command->Execute();
                     out += "\r\n";
-                    std::cout<<"out:"<<out.data()<<std::endl;
-                    if (send(client_socket, out.data(), out.size(), 0) <= 0) {
-                        close(client_socket);
-                        std::cout<<"not send\n"<<std::endl;
-                    }
+                    iov_out.push(out);
                 } catch (std::runtime_error &ex) {
                     std::string error = std::string("SERVER_ERROR 1 ") + ex.what() + "\n";
-                    if (send(client_socket, error.data(), error.size(), 0) <= 0) {
-                        close(client_socket);
-                        std::cout<<"not send2\n"<<std::endl;
-                    }
-                    close(client_socket);
-                    unparsed_buf = "";
-
+                    iov_out.push(error);
                 }
                 //stop = true;
                 unparsed_buf.erase(0, body_size + 2);
@@ -318,145 +367,23 @@ void Worker::Work(char *buf_, size_t client_socket, int n)
                     command->Execute(*this->pStorage, buf, out);
                     out += "\r\n";
                     std::cout<<"out:"<<out.data()<<std::endl;
-                    if (send(client_socket, out.data(), out.size(), 0) <= 0) {
-                        close(client_socket);
-                        std::cout<<"not send\n"<<std::endl;
-                    }
+                    iov_out.push(out);
                 } catch (std::runtime_error &ex) {
                     std::string error = std::string("SERVER_ERROR 2 ") + ex.what() + "\n";
-                    if (send(client_socket, error.data(), error.size(), 0) <= 0) {
-                        close(client_socket);
-                        std::cout<<"not send2\n"<<std::endl;
-                    }
-                    close(client_socket);
+                    iov_out.push(error);
                 }
                 //stop = true;
 
                 unparsed_buf.erase(0, found + 2);
             }
+
         }
 
+        nwritten = writev(client_socket, iov_out.iov, iov_out.size);
+
+        if (nwritten > 0)
+            iov_out.move(nwritten);
     }
-
-/*
-    while (!stop && unparsed_buf.size() ) {
-        //parser.Reset();
-        try {
-            ready_to_command = parser.Parse(unparsed_buf, parsed);
-        } catch (std::runtime_error &ex) {
-
-            std::string error = std::string("SERVER_ERROR 0") + ex.what() + "\n";
-            std::cout << error<< "start: " << unparsed_buf<< " :end"<< std::endl;
-            if (send(client_socket, error.data(), error.size(), 0) <= 0) {
-                close(client_socket);
-            }
-            close(client_socket);
-            //unparsed_buf = "";
-        }
-
-        //std::cout<<"buf_1:"<<buf<<std::endl;
-        //if (ready_to_command) {
-            //return buf;
-        //    std::cout<<"READY\n";
-        //}
-
-        //buf = unparsed_buf.substr(0, found);
-
-
-
-        //buf = buf.substr(parsed, buf.size() - parsed);
-
-
-        uint32_t body_size = 0;
-        auto command = parser.Build(body_size);
-        std::cout<<body_size<<std::endl;
-
-
-        if (body_size)
-        {
-            auto found = unparsed_buf.find_first_of("\r\n");
-            unparsed_buf.erase(0, found + 2);
-
-            buf = unparsed_buf.substr(0, body_size);
-            std::string out;
-
-            if(!buf.size())
-                break;
-            try {
-                command->Execute(*this->pStorage, buf.substr(0, body_size), out);
-                out += "\r\n";
-                std::cout<<"out:"<<out.data()<<std::endl;
-                if (send(client_socket, out.data(), out.size(), 0) <= 0) {
-                    close(client_socket);
-                    std::cout<<"not send\n"<<std::endl;
-                }
-            } catch (std::runtime_error &ex) {
-                std::string error = std::string("SERVER_ERROR 1 ") + ex.what() + "\n";
-                if (send(client_socket, error.data(), error.size(), 0) <= 0) {
-                    close(client_socket);
-                    std::cout<<"not send2\n"<<std::endl;
-                }
-                close(client_socket);               
-                unparsed_buf = "";
-                body_size = 0;
-            }
-            //stop = true;
-            unparsed_buf.erase(0, body_size + 2);
-        }
-
-        //std::cout<<"parsed :"<<parsed<<std::endl;
-        //
-        //
-        //std::cout<<"buf_1:"<<buf<<std::endl;
-        //if (buf.size() < body_size) {
-        //    //return prev;
-        //}
-
-        //GET
-        else //if(!body_size)
-        {
-            //cut_buf(buf);
-            //buf = buf.substr(3, buf.size());
-            //body_size = buf.size()-3;
-            auto found = unparsed_buf.find_first_of("\r\n");
-            buf = unparsed_buf.substr(0, found);
-            if(!buf.size())
-                break;
-            std::string out;
-            try {
-                command->Execute(*this->pStorage, buf, out);
-                out += "\r\n";
-                std::cout<<"out:"<<out.data()<<std::endl;
-                if (send(client_socket, out.data(), out.size(), 0) <= 0) {
-                    close(client_socket);
-                    std::cout<<"not send\n"<<std::endl;
-                }
-            } catch (std::runtime_error &ex) {
-                std::string error = std::string("SERVER_ERROR 2 ") + ex.what() + "\n";
-                if (send(client_socket, error.data(), error.size(), 0) <= 0) {
-                    close(client_socket);
-                    std::cout<<"not send2\n"<<std::endl;
-                }
-                close(client_socket);
-            }
-            //stop = true;
-
-            unparsed_buf.erase(0, found + 2);
-        }
-
-        std::cout<<"unparsed_buf.size(): "<<unparsed_buf.size()<<std::endl;
-
-        if(unparsed_buf.size() < 3)
-            unparsed_buf = "";
-
-        std::cout<<"body_size: "<<body_size <<std::endl;
-
-        //buf = buf.substr(body_size, buf.size() - body_size);
-        //buf = "";
-
-        std::cout<<"buf: "<<buf<<"  "<< buf.size() <<std::endl;
-    }
-*/
 
 }
 
