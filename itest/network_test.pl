@@ -170,16 +170,16 @@ TODO: {
 	);
 }
 
-#TODO: {
-#	local $TODO = "Delete command isn't yet implemented";
-#
-#	afina_test(
-#		"delete test\r\n",
-#		"DELETED\r\n",
-#		"Delete a key",
-#		1
-#	);
-#}
+TODO: {
+	local $TODO = "Delete command isn't yet implemented";
+
+	afina_test(
+		"delete test\r\n",
+		"DELETED\r\n",
+		"Delete a key",
+		1
+	);
+}
 
 afina_test(
 	"blablabla 0 0 0\r\n",
@@ -210,6 +210,7 @@ afina_test(
 	"Must correctly handle partial writes",
 	1
 );
+=cut
 
 afina_test(
 	"get foo\r\n",
@@ -217,6 +218,5 @@ afina_test(
 	"Correct result of partially written command",
 	0
 );
-=cut
 
 

@@ -246,11 +246,12 @@ void Worker::Work(char *buf_, size_t client_socket, int n)
     std::cout<<"buf_0:"<<buf<<std::endl;
     buf_[n] = '\0';
     std::string unparsed_buf = std::string(buf_);
-    std::string unparsed_buf2 = std::string(buf_);
+//    std::string unparsed_buf2 = std::string(buf_);
     while (!stop && unparsed_buf.size() ){
-
+        parser.Reset();
         try {
-            ready_to_command = parser.Parse(unparsed_buf2, parsed);
+//            ready_to_command = parser.Parse(unparsed_buf2, parsed);
+              ready_to_command = parser.Parse(unparsed_buf, parsed);
         } catch (std::runtime_error &ex) {
 
             std::string error = std::string("SERVER_ERROR ") + ex.what() + "\n";
@@ -262,7 +263,7 @@ void Worker::Work(char *buf_, size_t client_socket, int n)
             stop = true;
         }
 
-        unparsed_buf2.erase(0, parsed);
+//        unparsed_buf2.erase(0, parsed);
 
         if(ready_to_command)
         {
@@ -306,9 +307,6 @@ void Worker::Work(char *buf_, size_t client_socket, int n)
 
             else //if(!body_size)
             {
-                //cut_buf(buf);
-                //buf = buf.substr(3, buf.size());
-                //body_size = buf.size()-3;
                 auto found = unparsed_buf.find_first_of("\r\n");
                 buf = unparsed_buf.substr(0, found);
                 buf.erase(0,4);
@@ -335,7 +333,7 @@ void Worker::Work(char *buf_, size_t client_socket, int n)
                 //stop = true;
 
                 unparsed_buf.erase(0, found + 2);
-        }
+            }
         }
 
     }
